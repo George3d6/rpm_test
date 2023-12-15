@@ -7,9 +7,13 @@ from raven_gen import Matrix, MatrixType, Ruleset, RuleType
 import numpy as np
 import time
 import json
+from datetime import datetime
 
 
-os.mkdir("test_results")
+try:
+    os.mkdir("test_results")
+except:
+    pass
 np.random.seed(int(time.time()))
 
 raven_gen.attribute.SIZE_MAX = 3
@@ -88,6 +92,7 @@ rounds = 9
 start_time = time.time()
 photo_image = None
 image_label = None
+max_time = 60 * 5
 
 def load_images():
     global images, compare_images, correct_image, image_label, photo_image
@@ -114,6 +119,20 @@ def load_images():
     image_label.grid(row=1, column=1)
 
 
+def stop():
+    global counter, attempts, root, start_time, max_time, rounds
+    with open(f"test_results/res_{int(time.time())}_{datetime.now().hour}.json", "w") as fp:
+        json.dump({
+                    "correct": counter,
+                    "attempts": attempts,
+                    "max_rounds": rounds,
+                    "used_time": time.time() - start_time,
+                    "hour": datetime.now().hour,
+                    "max_time": max_time,
+                }, fp)
+    shutil.rmtree("test")
+    root.destroy()
+
 def compare_to_ref(selected_image, buttons):
     global images, compare_images, correct_image, root, attempts, start_time, counter
     if selected_image.tobytes() == correct_image.tobytes():
@@ -128,14 +147,7 @@ def compare_to_ref(selected_image, buttons):
     image_label.destroy()
     
     if attempts >= rounds:
-        with open(f"test_results/res_{int(time.time())}.json", "w") as fp:
-            json.dump({
-                "correct": counter,
-                "total": attempts,
-                "time": time.time() - start_time,
-            }, fp)
-        shutil.rmtree("test")
-        root.destroy()
+        stop()
 
     gen_images()
     load_images()
@@ -151,9 +163,12 @@ def create_image_buttons():
 
 
 def update_timer():
+    global max_time
     elapsed_time = int(time.time() - start_time)
-    timer_label.config(text=f"Time: {elapsed_time} seconds")
+    timer_label.config(text=f"Time: {elapsed_time}/{max_time} s")
     root.after(1000, update_timer)
+    if elapsed_time > max_time:
+        stop()
 
 root.title("Progressive Matrices")
 gen_images()
@@ -166,7 +181,7 @@ counter_label.grid(row=7, column=2)
 rounds_label = tk.Label(root, text=f"Rounds: {attempts}")
 rounds_label.grid(row=7, column=3)
 
-timer_label = tk.Label(root, text="Time: 0 seconds")
+timer_label = tk.Label(root, text=f"Time: 0/{max_time} s")
 timer_label.grid(row=7, column=4)
 
 update_timer()
